@@ -164,7 +164,7 @@ do_tick(Tasks0, Queue0, P2N0, N2P0) ->
              {P2N, N2P}     = try_start(Name, Task, P2N0, N2P0),
              {Tasks, Queue} = try_schedule(Name, Task, Tasks0, Queue1),
              do_tick(Tasks, Queue, P2N, N2P);
-           {{_Time, _Name}, _Name, _Queue} ->
+           {{_Time, Name0}, Name1, _Queue} when Name0 =:= Name1 ->
              {Tasks0, Queue0, P2N0, N2P0}
          end
   end.
