@@ -1,0 +1,70 @@
+name: Build
+
+on: [push]
+
+jobs:
+  tester:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        otp: ["24.3", "25.2"]
+    container: erlang:${{matrix.otp}}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      - name: Setup access to private git repos
+        run: |
+          git config --global url."https://${{ secrets.KIVRABOT }}@github.com/kivra/".insteadOf "git@github.com:kivra/"
+          git config --global url."https://${{ secrets.KIVRABOT }}@github.com/kivra".insteadOf "https://github.com/kivra"
+      - name: remember dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            _build/default
+            !_build/default/lib/ulogc
+            _build/test/lib
+            !_build/test/lib/ulogc
+          key: testbuild-${{ matrix.otp }}-${{ hashFiles('rebar.*') }}
+      - name: eunit
+        run: rebar3 eunit
+#      - name: ct
+#        run: |
+#          cat /etc/hosts
+#          cat /etc/resolv.conf
+#          rebar3 ct
+
+  compiler:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        otp: ["24.3", "25.2"]
+    container: erlang:${{matrix.otp}}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      - name: Setup access to private git repos
+        run: |
+          git config --global url."https://${{ secrets.KIVRABOT }}@github.com/kivra/".insteadOf "git@github.com:kivra/"
+          git config --global url."https://${{ secrets.KIVRABOT }}@github.com/kivra".insteadOf "https://github.com/kivra"
+      - name: remember dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            _build/default/
+            !_build/default/lib/ulogc
+          key: compile-${{ matrix.otp }}-${{ hashFiles('rebar.*') }}
+      - name: compile
+        run: rebar3 compile
+      - name: xref
+        run: rebar3 xref
+      - name: dialyzer
+        run: rebar3 dialyzer
+#      - name: Generate documentation
+#        run: |
+#          rebar3 ex_doc \
+#            --formatter html
+#      - name: Upload doc
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: documentation-${{matrix.otp}}
+#          path: doc/
