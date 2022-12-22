@@ -14,6 +14,8 @@
 	, remove/2
         ]).
 
+-ignore_xref([start_link/1]).
+
 %% gen_server
 -export([ init/1
         , terminate/2
@@ -25,6 +27,7 @@
 
 %%%_* Includes =========================================================
 -include_lib("stdlib2/include/prelude.hrl").
+
 
 %%%_* Macros ===========================================================
 -define(tick, 1000).

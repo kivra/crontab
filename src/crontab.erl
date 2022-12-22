@@ -14,6 +14,9 @@
         , remove/2
         ]).
 
+-ignore_xref([add/3, add/4]).
+-ignore_xref([remove/1, remove/2]).
+
 %%%_* Includes =========================================================
 -include_lib("stdlib2/include/prelude.hrl").
 
