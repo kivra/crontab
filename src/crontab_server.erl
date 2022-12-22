@@ -26,8 +26,7 @@
         ]).
 
 %%%_* Includes =========================================================
--include_lib("stdlib2/include/prelude.hrl").
-
+-include_lib("kernel/include/logger.hrl").
 
 %%%_* Macros ===========================================================
 -define(tick, 1000).
@@ -99,14 +98,14 @@ handle_info(tick, S) ->
 handle_info({'EXIT', Pid, Rsn}, S) ->
   Name = dict:fetch(Pid, S#s.p2n),
   case Rsn of
-    normal -> ?info("~p done", [Name]);
-    _      -> ?critical("~p crashed: ~p", [Name, Rsn])
+    normal -> ?LOG_INFO(#{message => job_done, job => Name });
+    _      -> ?LOG_ERROR(#{message => job_crash, job => Name, reason => Rsn})
   end,
   {noreply, S#s{ p2n = dict:erase(Pid, S#s.p2n)
 	       , n2p = dict:erase(Name, S#s.n2p)
 	       }};
 handle_info(Msg, S) ->
-  ?warning("~p", [Msg]),
+  ?LOG_WARNING(#{ message => unknown_message, msg => Msg}),
   {noreply, S}.
 
 code_change(_OldVsn, S, _Extra) ->
@@ -142,11 +141,11 @@ do_remove(Name, Options, Tasks, Queue, P2N0, N2P0) ->
   end.
 
 maybe_stop(Name, Options, P2N, N2P) ->
-  case s2_lists:assoc(Options, stop_on_remove, true) of
+  case proplists:get_value(stop_on_remove, Options, true) of
     true  ->
       case dict:find(Name, N2P) of
         {ok, Pid} ->
-          ?info("~p stopping", [Name]),
+          ?LOG_INFO(#{ message => job_stopping, job => Name}),
           exit(Pid, removing),
           {P2N, N2P};
         error ->
@@ -176,10 +175,10 @@ try_start(Name, Task, P2N, N2P) ->
   %% TODO: figure out what to do with overlapping tasks
   case dict:is_key(Name, N2P) of
     true ->
-      ?warning("~p is running, not starting", [Name]),
+      ?LOG_WARNING(#{ message => job_already_running, job => Name}),
       {P2N, N2P};
     false ->
-      ?info("~p starting", [Name]),
+      ?LOG_INFO(#{ message => job_starting, job => Name}),
       {M,F,A} = Task#task.mfa,
       Pid = erlang:spawn_link(M, F, A),
       {dict:store(Pid, Name, P2N),
@@ -189,11 +188,11 @@ try_start(Name, Task, P2N, N2P) ->
 try_schedule(Name, Task, Tasks0, Queue0) ->
   case crontab_time:find_next(Task#task.spec, Task#task.next) of
     {ok, Time} ->
-      ?info("~p next start: ~p", [Name, Time]),
+      ?LOG_INFO(#{ message => job_reschedule, job => Name, next_start => Time}),
       {gb_trees:update(Name, Task#task{next=Time}, Tasks0),
        gb_trees:insert({Time, Name}, Name, Queue0)};
     {error, Rsn} ->
-      ?info("~p unable to find next start: ~p", [Name, Rsn]),
+      ?LOG_INFO(#{ message => job_reschedule_error, job => Name, reason => Rsn}),
       {gb_trees:update(Name, Task#task{next=undefined}, Tasks0), Queue0}
   end.
 
