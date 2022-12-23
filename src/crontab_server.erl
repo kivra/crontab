@@ -30,6 +30,7 @@
 
 %%%_* Macros ===========================================================
 -define(tick, 1000).
+-define(REPORT(Msg, Job), #{message => Msg, cronjob => Job}).
 
 %%%_* Code =============================================================
 %%%_ * Types -----------------------------------------------------------
@@ -98,8 +99,8 @@ handle_info(tick, S) ->
 handle_info({'EXIT', Pid, Rsn}, S) ->
   Name = dict:fetch(Pid, S#s.p2n),
   case Rsn of
-    normal -> ?LOG_INFO(#{message => job_done, job => Name });
-    _      -> ?LOG_ERROR(#{message => job_crash, job => Name, reason => Rsn})
+    normal -> ?LOG_INFO(?REPORT(job_done, Name));
+    _      -> ?LOG_ERROR(?REPORT(job_crash, Name)#{reason => Rsn})
   end,
   {noreply, S#s{ p2n = dict:erase(Pid, S#s.p2n)
 	       , n2p = dict:erase(Name, S#s.n2p)
@@ -145,7 +146,7 @@ maybe_stop(Name, Options, P2N, N2P) ->
     true  ->
       case dict:find(Name, N2P) of
         {ok, Pid} ->
-          ?LOG_INFO(#{ message => job_stopping, job => Name}),
+          ?LOG_INFO(?REPORT(job_stopping, Name)),
           exit(Pid, removing),
           {P2N, N2P};
         error ->
@@ -175,10 +176,10 @@ try_start(Name, Task, P2N, N2P) ->
   %% TODO: figure out what to do with overlapping tasks
   case dict:is_key(Name, N2P) of
     true ->
-      ?LOG_WARNING(#{ message => job_already_running, job => Name}),
+      ?LOG_WARNING(?REPORT(job_already_running, Name)),
       {P2N, N2P};
     false ->
-      ?LOG_INFO(#{ message => job_starting, job => Name}),
+      ?LOG_INFO(?REPORT(job_starting, Name)),
       {M,F,A} = Task#task.mfa,
       Pid = erlang:spawn_link(M, F, A),
       {dict:store(Pid, Name, P2N),
@@ -188,11 +189,11 @@ try_start(Name, Task, P2N, N2P) ->
 try_schedule(Name, Task, Tasks0, Queue0) ->
   case crontab_time:find_next(Task#task.spec, Task#task.next) of
     {ok, Time} ->
-      ?LOG_INFO(#{ message => job_reschedule, job => Name, next_start => Time}),
+      ?LOG_INFO(?REPORT(job_reschedule, Name)#{next_start => Time}),
       {gb_trees:update(Name, Task#task{next=Time}, Tasks0),
        gb_trees:insert({Time, Name}, Name, Queue0)};
     {error, Rsn} ->
-      ?LOG_INFO(#{ message => job_reschedule_error, job => Name, reason => Rsn}),
+      ?LOG_INFO(?REPORT(job_reschedule_error, Name)#{reason => Rsn}),
       {gb_trees:update(Name, Task#task{next=undefined}, Tasks0), Queue0}
   end.
 
