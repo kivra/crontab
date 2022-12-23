@@ -9,10 +9,12 @@
 -behaviour(gen_server).
 
 %%%_* Exports ==========================================================
--export([ start_link/1
-	, add/4
-	, remove/2
+-export([start_link/1,
+         add/4,
+         remove/2
         ]).
+
+-export([cronjob/2]).
 
 -ignore_xref([start_link/1]).
 
@@ -181,7 +183,7 @@ try_start(Name, Task, P2N, N2P) ->
     false ->
       ?LOG_INFO(?REPORT(job_starting, Name)),
       {M,F,A} = Task#task.mfa,
-      Pid = erlang:spawn_link(M, F, A),
+      Pid = erlang:spawn_link(?MODULE, cronjob, [Name, {M,F,A}]),
       {dict:store(Pid, Name, P2N),
        dict:store(Name, Pid, N2P)}
   end.
@@ -197,6 +199,15 @@ try_schedule(Name, Task, Tasks0, Queue0) ->
       {gb_trees:update(Name, Task#task{next=undefined}, Tasks0), Queue0}
   end.
 
+cronjob(Name, {M, F, A}) ->
+  logger:update_process_metadata(#{cronjob => Name}),
+  try
+    apply(M, F, A)
+  catch
+    _:Rsn:Trace ->
+      ?LOG_ERROR(#{message => job_exception, reason => Rsn}, #{stacktrace => Trace})
+  end.
+
 %%%_* Tests ============================================================
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -208,10 +219,10 @@ empty_tick_test_() ->
 unable_to_schedule_test() ->
   crontab_test:with_crontab(
     fun() ->
-	Spec = crontab_time:now(),
-	{error, no_next_found} =
-	  crontab:add(foo, Spec, {crontab_test, execute_funs,
-				  [[fun() -> exit(fail) end]]})
+      Spec = crontab_time:now(),
+      {error, no_next_found} =
+        crontab:add(foo, Spec, {crontab_test, execute_funs,
+            [[fun() -> exit(fail) end]]})
     end).
 
 stop_running_task_test_() ->
