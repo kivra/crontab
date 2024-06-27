@@ -32,7 +32,7 @@
 
 %%%_* Macros ===========================================================
 -define(tick, 1000).
--define(REPORT(Msg, Job), #{message => Msg, cronjob => Job}).
+-define(REPORT(Msg, Job), begin #{message => Msg, cronjob => Job} end).
 
 %%%_* Code =============================================================
 %%%_ * Types -----------------------------------------------------------
