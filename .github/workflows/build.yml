@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: ["24.3", "25.2"]
+        otp: ["24.3", "25.2", "27.0"]
     container: erlang:${{matrix.otp}}
     steps:
       - name: Checkout source
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        otp: ["24.3", "25.2"]
+        otp: ["24.3", "25.2", "27.0"]
     container: erlang:${{matrix.otp}}
     steps:
       - name: Checkout source
